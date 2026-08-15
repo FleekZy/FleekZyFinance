@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FleekZy Finance — Finanzas Personales</title>
+    <title>Finanzas Personales</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -53,21 +53,21 @@
             <!-- Month Selector & Controls -->
             <div class="flex items-center space-x-2 sm:space-x-4">
                 <div class="flex items-center bg-slate-100 dark:bg-darkBg border border-slate-200 dark:border-darkBorder rounded-xl p-1 shadow-inner">
-                    <button onclick="changeMonth(-1)" class="p-1.5 hover:bg-white dark:hover:bg-darkCard rounded-lg transition text-slate-600 dark:text-slate-300">
+                    <button onclick="changeMonth(-1)" class="p-1.5 hover:bg-white dark:hover:bg-darkCard rounded-lg transition text-slate-600 dark:text-slate-300 cursor-pointer">
                         <i data-lucide="chevron-left" class="w-4 h-4"></i>
                     </button>
                     <span id="currentMonthDisplay" class="px-3 text-sm font-semibold capitalize min-w-[120px] text-center">Agosto 2026</span>
-                    <button onclick="changeMonth(1)" class="p-1.5 hover:bg-white dark:hover:bg-darkCard rounded-lg transition text-slate-600 dark:text-slate-300">
+                    <button onclick="changeMonth(1)" class="p-1.5 hover:bg-white dark:hover:bg-darkCard rounded-lg transition text-slate-600 dark:text-slate-300 cursor-pointer">
                         <i data-lucide="chevron-right" class="w-4 h-4"></i>
                     </button>
                 </div>
 
-                <button onclick="openTransactionModal()" class="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 transition transform active:scale-95">
+                <button onclick="openTransactionModal()" class="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 transition transform active:scale-95 cursor-pointer">
                     <i data-lucide="plus" class="w-4 h-4"></i>
                     <span class="hidden sm:inline">Nuevo Movimiento</span>
                 </button>
 
-                <button onclick="toggleTheme()" class="p-2.5 rounded-xl border border-slate-200 dark:border-darkBorder hover:bg-slate-100 dark:hover:bg-darkCard transition text-slate-600 dark:text-slate-300">
+                <button onclick="toggleTheme()" class="p-2.5 rounded-xl border border-slate-200 dark:border-darkBorder hover:bg-slate-100 dark:hover:bg-darkCard transition text-slate-600 dark:text-slate-300 cursor-pointer">
                     <i data-lucide="sun" class="w-4 h-4 hidden dark:block"></i>
                     <i data-lucide="moon" class="w-4 h-4 block dark:hidden"></i>
                 </button>
@@ -283,14 +283,22 @@
             </div>
         </section>
 
-        <!-- Danger Zone / Data Management -->
+        <!-- Danger Zone / Data Management & Export/Import -->
         <section class="flex flex-wrap items-center justify-between gap-4 py-4 px-6 bg-slate-100 dark:bg-darkCard/50 border border-slate-200 dark:border-darkBorder rounded-2xl text-xs text-slate-500">
             <div class="flex items-center space-x-2">
                 <i data-lucide="shield-check" class="w-4 h-4 text-emerald-500"></i>
                 <span>Tus datos se almacenan de forma local y privada en tu navegador.</span>
             </div>
-            <div class="flex items-center space-x-3">
-                <button hidden onclick="loadSampleData()" class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-darkBorder hover:bg-white dark:hover:bg-darkCard transition font-medium cursor-pointer">Cargar Datos de Ejemplo</button>
+            <div class="flex items-center space-x-3 flex-wrap gap-y-2">
+                <button onclick="exportData()" class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-darkBorder hover:bg-white dark:hover:bg-darkCard transition font-medium cursor-pointer flex items-center space-x-1">
+                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                    <span>Exportar Datos</span>
+                </button>
+                <label class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-darkBorder hover:bg-white dark:hover:bg-darkCard transition font-medium cursor-pointer flex items-center space-x-1">
+                    <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                    <span>Importar Datos</span>
+                    <input type="file" id="importFile" accept=".json" onchange="importData(event)" class="hidden">
+                </label>
                 <button onclick="clearAllData()" class="px-3 py-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition font-medium cursor-pointer">Borrar Todo</button>
             </div>
         </section>
@@ -411,7 +419,10 @@
         let charts = {};
 
         document.addEventListener('DOMContentLoaded', () => {
-            loadFromLocalStorage();
+            const hasData = loadFromLocalStorage();
+            if (!hasData) {
+                 
+            }
             checkRecurringTransactions();
             initTheme();
             updateAll();
@@ -427,6 +438,8 @@
                 html.classList.add('dark');
                 localStorage.setItem('aura_theme', 'dark');
             }
+            const { history } = calculateMonthlyAverages();
+            renderCharts(history);
         }
 
         function initTheme() {
@@ -451,9 +464,47 @@
                     state.targetAmount = parsed.targetAmount ?? 0.00;
                     state.targetDate = parsed.targetDate ?? '2027-12-31';
                     state.transactions = parsed.transactions ?? [];
+                    return true;
                 } catch(e) {
                     console.error("Error reading storage", e);
                 }
+            }
+            return false;
+        }
+
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `finanzas_backup_${new Date().toISOString().slice(0, 10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importData(event) {
+            const fileReader = new FileReader();
+            if (event.target.files && event.target.files[0]) {
+                fileReader.readAsText(event.target.files[0], "UTF-8");
+                fileReader.onload = (e) => {
+                    try {
+                        const parsed = JSON.parse(e.target.result);
+                        if (parsed && typeof parsed.initialBalance === 'number' && Array.isArray(parsed.transactions)) {
+                            state.initialBalance = parsed.initialBalance;
+                            state.targetAmount = parsed.targetAmount ?? 0.00;
+                            state.targetDate = parsed.targetDate ?? '2027-12-31';
+                            state.transactions = parsed.transactions;
+                            saveToLocalStorage();
+                            updateAll();
+                            alert('¡Datos importados correctamente con éxito!');
+                        } else {
+                            alert('El archivo no tiene un formato válido.');
+                        }
+                    } catch (error) {
+                        alert('Error al leer el archivo JSON.');
+                    }
+                    event.target.value = ''; 
+                };
             }
         }
 
@@ -468,48 +519,6 @@
             }
         }
 
-        function loadSampleData(showAlert = true) {
-            state.initialBalance = 18839.00;
-            state.targetAmount = 30000.00;
-            state.targetDate = '2027-12-31';
-            state.transactions = [
-                // June 2026
-                { type: 'ingreso', amount: 1700, category: 'Nómina', desc: 'Nómina Junio', date: '2026-06-01', recurring: true },
-                { type: 'gasto', amount: 650, category: 'Vivienda', desc: 'Alquiler', date: '2026-06-02', recurring: true },
-                { type: 'gasto', amount: 372.93, category: 'Coche', desc: 'Cuota coche', date: '2026-06-05', recurring: true },
-                { type: 'gasto', amount: 17.99, category: 'Suscripciones', desc: 'Netflix', date: '2026-06-10', recurring: true },
-                { type: 'gasto', amount: 250, category: 'Alimentación', desc: 'Supermercado', date: '2026-06-15', recurring: false },
-                { type: 'gasto', amount: 120, category: 'Combustible', desc: 'Gasolina', date: '2026-06-20', recurring: false },
-
-                // July 2026
-                { type: 'ingreso', amount: 1700, category: 'Nómina', desc: 'Nómina Julio', date: '2026-07-01', recurring: true },
-                { type: 'gasto', amount: 650, category: 'Vivienda', desc: 'Alquiler', date: '2026-07-02', recurring: true },
-                { type: 'gasto', amount: 372.93, category: 'Coche', desc: 'Cuota coche', date: '2026-07-05', recurring: true },
-                { type: 'gasto', amount: 17.99, category: 'Suscripciones', desc: 'Netflix', date: '2026-07-10', recurring: true },
-                { type: 'gasto', amount: 280, category: 'Alimentación', desc: 'Supermercado', date: '2026-07-14', recurring: false },
-                { type: 'gasto', amount: 90, category: 'Ocio', desc: 'Cena con amigos', date: '2026-07-22', recurring: false },
-
-                // August 2026 (Current)
-                { type: 'ingreso', amount: 1700, category: 'Nómina', desc: 'Nómina Agosto', date: '2026-08-01', recurring: true },
-                { type: 'gasto', amount: 650, category: 'Vivienda', desc: 'Alquiler', date: '2026-08-02', recurring: true },
-                { type: 'gasto', amount: 372.93, category: 'Coche', desc: 'Cuota coche', date: '2026-08-05', recurring: true },
-                { type: 'gasto', amount: 17.99, category: 'Suscripciones', desc: 'Netflix', date: '2026-08-10', recurring: true },
-                { type: 'gasto', amount: 310, category: 'Alimentación', desc: 'Supermercado mes', date: '2026-08-12', recurring: false },
-                { type: 'gasto', amount: 140, category: 'Combustible', desc: 'Gasolina', date: '2026-08-13', recurring: false },
-                { type: 'gasto', amount: 150, category: 'Ocio', desc: 'Fin de semana fuera', date: '2026-08-14', recurring: false },
-
-                // September 2026
-                { type: 'ingreso', amount: 1700, category: 'Nómina', desc: 'Nómina Septiembre', date: '2026-09-01', recurring: true },
-                { type: 'gasto', amount: 650, category: 'Vivienda', desc: 'Alquiler', date: '2026-09-02', recurring: true },
-                { type: 'gasto', amount: 372.93, category: 'Coche', desc: 'Cuota coche', date: '2026-09-05', recurring: true },
-                { type: 'gasto', amount: 17.99, category: 'Suscripciones', desc: 'Netflix', date: '2026-09-10', recurring: true },
-                { type: 'gasto', amount: 260, category: 'Alimentación', desc: 'Supermercado', date: '2026-09-11', recurring: false }
-            ];
-            saveToLocalStorage();
-            checkRecurringTransactions();
-            updateAll();
-            if (showAlert) alert('Datos de ejemplo cargados correctamente.');
-        }
 
         function checkRecurringTransactions() {
             if (state.transactions.length === 0) return;
@@ -536,7 +545,7 @@
 
             const dates = state.transactions.map(t => new Date(t.date));
             let minDate = new Date(Math.min.apply(null, dates));
-            let maxDate = new Date(Math.max(Math.max.apply(null, dates), state.currentDate.getTime()));
+            let maxDate = new Date(Math.max(Math.max.apply(null, dates), new Date().getTime()));
 
             let curr = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
             let addedNew = false;
@@ -667,30 +676,37 @@
             const { avgSavings, history } = calculateMonthlyAverages();
             document.getElementById('avgMonthlySavings').innerText = formatCurrency(avgSavings) + ' / mes';
 
-            const now = new Date();
-            const monthsRemaining = (targetDt.getFullYear() - now.getFullYear()) * 12 + (targetDt.getMonth() - now.getMonth());
+            // CÁLCULO DINÁMICO DE LA META BASADO EN EL MES SELECCIONADO ACTUALMENTE EN EL VISOR
+            const selYear = state.currentDate.getFullYear();
+            const selMonth = state.currentDate.getMonth();
+            const targetYear = targetDt.getFullYear();
+            const targetMonth = targetDt.getMonth();
+
+            const monthsRemaining = (targetYear - selYear) * 12 + (targetMonth - selMonth);
             const remainingMoney = targetAmt - totals.saldoActual;
             
             let deadlineInfoEl = document.getElementById('goalDeadlineInfo');
             if (targetAmt <= 0) {
                 deadlineInfoEl.innerText = `Sin meta configurada`;
-            } else if (monthsRemaining > 0) {
+            } else if (monthsRemaining > 0 && remainingMoney > 0) {
                 const neededPerMonth = remainingMoney / monthsRemaining;
                 deadlineInfoEl.innerText = `Faltan ${monthsRemaining} meses (${formatCurrency(neededPerMonth)}/mes)`;
+            } else if (remainingMoney <= 0) {
+                deadlineInfoEl.innerText = `¡Meta ya alcanzada! 🎉`;
             } else {
-                deadlineInfoEl.innerText = `Fecha límite alcanzada`;
+                deadlineInfoEl.innerText = `Fecha límite pasada o alcanzada`;
             }
 
             let projectionTextEl = document.getElementById('projectionText');
             if (targetAmt <= 0) {
                 projectionTextEl.innerText = `Establece un objetivo`;
-            } else if (avgSavings > 0 && remainingMoney > 0) {
+            } else if (remainingMoney <= 0) {
+                projectionTextEl.innerText = `¡Objetivo cumplido con éxito! 🎉`;
+            } else if (avgSavings > 0) {
                 const monthsToGoal = Math.ceil(remainingMoney / avgSavings);
                 projectionTextEl.innerText = `Aprox. en ${monthsToGoal} meses (${Math.floor(monthsToGoal / 12)} años y ${monthsToGoal % 12} meses)`;
-            } else if (remainingMoney <= 0 && targetAmt > 0) {
-                projectionTextEl.innerText = `¡Objetivo cumplido con éxito! 🎉`;
             } else {
-                projectionTextEl.innerText = `Ahorro medio insuficiente para estimación`;
+                projectionTextEl.innerText = `Ahorro medio insuficiente o negativo`;
             }
 
             populateCategoryFilter();
@@ -853,7 +869,6 @@
             }
         }
 
-        // SALDO INICIAL MODAL CONTROLS
         function editInitialBalance() {
             document.getElementById('inputInitialBalanceValue').value = state.initialBalance;
             const modal = document.getElementById('balanceModal');
@@ -876,7 +891,6 @@
             }
         }
 
-        // OBJETIVO / META MODAL CONTROLS
         function editTargetGoal() {
             document.getElementById('inputTargetAmount').value = state.targetAmount || 0;
             document.getElementById('inputTargetDate').value = state.targetDate || '2027-12-31';
